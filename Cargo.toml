@@ -1,0 +1,21 @@
+[package]
+name = "the_auditor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.72"
+dialoguer = "0.10.4"
+dotenvy = "0.15.7"
+reqwest = "0.11.18"
+serde = { version = "1.0.181", features = ["derive"] }
+serde_json = "1.0.104"
+tokio = { version = "1.29.1", features = ["full"] }
+vauth = "1.0.0"
+webbrowser = "0.8.10"
+toml = "0.7.6"
+regex = "1.9.1"
+press-btn-continue = "0.2.0"
+chrono = "0.4.26"
