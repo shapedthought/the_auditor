@@ -262,6 +262,11 @@ async fn remove_item(username: &String, address: &String) -> Result<()> {
             .collect::<Vec<String>>();
     }
 
+    if selections.is_empty() {
+        println!("No items found");
+        return Ok(());
+    }
+
     let type_string = if type_selected == 0 {
         "user"
     } else {
