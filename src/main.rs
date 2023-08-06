@@ -262,8 +262,16 @@ async fn remove_item(username: &String, address: &String) -> Result<()> {
             .collect::<Vec<String>>();
     }
 
+    let type_string = if type_selected == 0 {
+        "user"
+    } else {
+        "group"
+    };
+
+    let ml_prompt = format!("Select {} to remove", type_string);
+
     let multi_select = MultiSelect::new()
-        .with_prompt("Select users to remove")
+        .with_prompt(ml_prompt)
         .items(&selections)
         .interact()?;
 
