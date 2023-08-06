@@ -176,7 +176,6 @@ async fn set_up_auth(
         tenant_id: config.azure.tenant_id.clone(),
         redirect_url: config.azure.redirect_url.clone(),
     };
-    println!("{:#?}", auth_request);
     let url = build_url(
         &address,
         &"AuditEmailSettings/PrepareOAuthSignIn".to_string(),
@@ -195,7 +194,8 @@ async fn set_up_auth(
     let mut url_file = fs::File::create(&"callback.txt".to_string())?;
     url_file.write_all(b"replace this text")?;
 
-    println!("Please sign in and copy the URL you are redirected to into a file called callback.txt you will find in the same directory as this executable");
+    println!("Please sign in and copy the URL you are redirected to into a file called callback.txt.");
+    println!("You will find in the same directory as you ran this program.");
     press_btn_continue::wait("Press any key to continue...\n").unwrap();
     let url_string = fs::read_to_string("callback.txt")?;
     if url_string.is_empty() {
