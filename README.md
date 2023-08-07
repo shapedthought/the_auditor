@@ -114,9 +114,8 @@ If it is your first use you will need to run the Setup/Reauthorize option which 
 
 Doing this will trigger a web browser to open and you will need to log in to your Azure AD account remember to enabled "Consent on behalf of your organization".
 
-This will then trigger the callback URL which you can either copy manually from the URL bar into the `callback.txt` file that is created in the directory that you run the Auditor. Then press enter in the terminal.
-
-Alternatively if you are running the The Auditor Web app (check my github for this), in which case the file will be saved automatically.
+This will then start a TCP listener on the port that you specified in the call back address. Once you have finished authenticating, the listener will automatically get the data from the callback
+and use it in to complete the setup.
 
 If it all works you will see a message saying "Notification settings updated successfully!".
 

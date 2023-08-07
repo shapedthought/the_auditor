@@ -19,3 +19,9 @@ toml = "0.7.6"
 regex = "1.9.1"
 press-btn-continue = "0.2.0"
 chrono = "0.4.26"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1

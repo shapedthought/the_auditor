@@ -8,9 +8,12 @@ use std::{
     fs::{self, File},
     io::Write,
 };
+
 use vauth::{build_auth_headers, build_url, Profile, VClientBuilder, VProfile};
-use webbrowser;
+
 mod models;
+mod tcplistener;
+use tcplistener::run_tcp_listener;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Local, Utc};
 use models::{
@@ -52,7 +55,7 @@ async fn login(username: &String, address: &String, profile: &mut Profile) -> Re
                     .default_headers(auth_headers)
                     .build()?;
 
-                return Ok(client);
+                Ok(client)
             }
         }
         Err(_) => {
@@ -74,17 +77,17 @@ async fn login_full(
     reason: String,
 ) -> Result<Client> {
     println!("{}", reason);
-    let (client, login_response) = VClientBuilder::new(&address, username.to_string())
+    let (client, login_response) = VClientBuilder::new(address, username.to_string())
         .insecure()
         .timeout(60)
         .build(profile)
         .await
         .unwrap();
     let now = Utc::now();
-    let expires_on = now + Duration::seconds(login_response.expires_in.clone() as i64);
+    let expires_on = now + Duration::seconds(login_response.expires_in as i64);
     let expires_on_string = expires_on.to_rfc3339();
     save_token_file(login_response, expires_on_string)?;
-    return Ok(client);
+    Ok(client)
 }
 
 fn save_token_file(
@@ -98,7 +101,7 @@ fn save_token_file(
         expires_in: login_response.expires_in,
         expires_on: expires_on_string,
     };
-    let mut json_file = fs::File::create(&"token.json".to_string())?;
+    let mut json_file = fs::File::create("token.json")?;
     let token_string = serde_json::to_string_pretty(&login_expended)?;
     json_file.write_all(token_string.as_bytes())?;
     Ok(())
@@ -113,26 +116,25 @@ enum PromptOptions {
 
 #[allow(dead_code)]
 fn prompt_info(prompt: &str, p_opt: PromptOptions) -> Result<String> {
-    let input: String;
 
-    match p_opt {
+    let input: String = match p_opt {
         PromptOptions::String => {
-            input = Input::new().with_prompt(prompt).interact_text()?;
+            Input::new().with_prompt(prompt).interact_text()?
         }
         PromptOptions::Password => {
-            input = Password::new()
+            Password::new()
                 .with_prompt(prompt)
                 .with_confirmation("Confirm password", "Passwords mismatching")
-                .interact()?;
+                .interact()?
         }
-    }
+    };
 
     Ok(input)
 }
 
 async fn setup_notifications(username: &String, address: &String, config: Config) -> Result<()> {
     let mut profile = Profile::get_profile(VProfile::VB365);
-    let client = login(&username, &address, &mut profile).await?;
+    let client = login(username, address, &mut profile).await?;
     println!("Logged in successfully!");
 
     let complete_response = set_up_auth(&config, address, &profile, &client).await?;
@@ -150,7 +152,7 @@ async fn setup_notifications(username: &String, address: &String, config: Config
         request_id: complete_response.request_id,
     };
 
-    let url = build_url(&address, &"AuditEmailSettings".to_string(), &profile)?;
+    let url = build_url(address, &"AuditEmailSettings".to_string(), &profile)?;
 
     let response = client.put(&url).json(&nd).send().await?;
 
@@ -177,7 +179,7 @@ async fn set_up_auth(
         redirect_url: config.azure.redirect_url.clone(),
     };
     let url = build_url(
-        &address,
+        address,
         &"AuditEmailSettings/PrepareOAuthSignIn".to_string(),
         profile,
     )?;
@@ -191,15 +193,16 @@ async fn set_up_auth(
 
     println!("Opening browser to sign in...");
     webbrowser::open(&response.sign_in_url)?;
-    let mut url_file = fs::File::create(&"callback.txt".to_string())?;
-    url_file.write_all(b"replace this text")?;
 
-    println!("Please sign in and copy the URL you are redirected to into a file called callback.txt.");
-    println!("You will find in the same directory as you ran this program.");
-    press_btn_continue::wait("Press any key to continue...\n").unwrap();
-    let url_string = fs::read_to_string("callback.txt")?;
+    // let mut url_file = fs::File::create(&"callback.txt".to_string())?;
+    // url_file.write_all(b"replace this text")?;
+
+    println!("Please sign in, this program will listen for the data from the call back.");
+    // press_btn_continue::wait("Press any key to continue...\n").unwrap();
+    // let url_string = fs::read_to_string("callback.txt")?;
+    let url_string = run_tcp_listener(config.azure.redirect_url.clone()).await?;
     if url_string.is_empty() {
-        return Err(anyhow::anyhow!("URL file is empty"));
+        return Err(anyhow::anyhow!("The URL was empty"));
     }
     let pattern = r"=([^&]+)";
     let regex = Regex::new(pattern).unwrap();
@@ -215,24 +218,31 @@ async fn set_up_auth(
         state: matches[1].to_string(),
     };
     let url_string = build_url(
-        &address,
+        address,
         &"AuditEmailSettings/CompleteOAuthSignIn".to_string(),
         profile,
     )?;
-    let complete_response: CompleteResponse = client
+    let complete_response = client
         .post(&url_string)
         .json(&complete_request)
         .send()
-        .await?
-        .json()
         .await?;
-    Ok(complete_response)
+
+    if complete_response.status().is_success() {
+        let complete_response = complete_response.json::<CompleteResponse>().await?;
+        Ok(complete_response)
+    } else {
+        let reason = complete_response.text().await?;
+        Err(anyhow::anyhow!("Authentication failed! {:?}", reason))
+    }
+
+    // Ok(complete_response)
 }
 
 async fn remove_item(username: &String, address: &String) -> Result<()> {
     let mut profile = Profile::get_profile(VProfile::VB365);
 
-    let client = login(&username, &address, &mut profile).await?;
+    let client = login(username, address, &mut profile).await?;
     let id = get_org_id(address, &profile, &client).await?;
 
     let response = audit_items(&id, address, &profile, &client).await?;
@@ -244,23 +254,22 @@ async fn remove_item(username: &String, address: &String) -> Result<()> {
         .items(&choices)
         .interact()?;
 
-    let selections: Vec<String>;
 
-    if type_selected == 0 {
-        selections = response
+    let selections: Vec<String> = if type_selected == 0 {
+        response
             .iter()
             .filter(|x| x.user.is_some())
             .map(|x| x.user.as_ref().unwrap().clone())
-            .map(|x| x.display_name.clone())
-            .collect::<Vec<String>>();
+            .map(|x| x.display_name)
+            .collect::<Vec<String>>()
     } else {
-        selections = response
+        response
             .iter()
             .filter(|x| x.group.is_some())
             .map(|x| x.group.as_ref().unwrap().clone())
-            .map(|x| x.display_name.clone())
-            .collect::<Vec<String>>();
-    }
+            .map(|x| x.display_name)
+            .collect::<Vec<String>>()
+    };
 
     if selections.is_empty() {
         println!("No items found");
@@ -298,7 +307,7 @@ async fn remove_item(username: &String, address: &String) -> Result<()> {
     confirm_action();
 
     let url = build_url(
-        &address,
+        address,
         &format!("Organizations/{}/AuditItems/remove", id),
         &profile,
     )?;
@@ -323,7 +332,7 @@ async fn remove_item(username: &String, address: &String) -> Result<()> {
 async fn get_audit_items(username: &String, address: &String) -> Result<()> {
     let mut profile = Profile::get_profile(VProfile::VB365);
 
-    let client = login(&username, &address, &mut profile).await?;
+    let client = login(username, address, &mut profile).await?;
     let id = get_org_id(address, &profile, &client).await?;
 
     let response = audit_items(&id, address, &profile, &client).await?;
@@ -343,7 +352,7 @@ async fn get_audit_items(username: &String, address: &String) -> Result<()> {
         }
 
         println!("Field Type: {}", i.type_field);
-        println!("");
+        println!();
     }
     Ok(())
 }
@@ -355,7 +364,7 @@ async fn audit_items(
     client: &Client,
 ) -> Result<Vec<AuditItem>, anyhow::Error> {
     let audit_string = format!("Organizations/{}/AuditItems", id);
-    let audit_url = build_url(&address, &audit_string, &profile)?;
+    let audit_url = build_url(address, &audit_string, profile)?;
     let response: Vec<AuditItem> = client.get(&audit_url).send().await?.json().await?;
     Ok(response)
 }
@@ -365,10 +374,9 @@ async fn get_org_id(
     profile: &Profile,
     client: &Client,
 ) -> Result<String, anyhow::Error> {
-    let org_url = build_url(&address, &"Organizations".to_string(), profile)?;
+    let org_url = build_url(address, &"Organizations".to_string(), profile)?;
     let response: Vec<OrgItem> = client.get(&org_url).send().await?.json().await?;
-    let id: String;
-    if response.len() > 1 {
+    let id: String = if response.len() > 1 {
         let selections: Vec<String> = response.iter().map(|x| x.name.clone()).collect();
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Select Organization")
@@ -378,23 +386,23 @@ async fn get_org_id(
             .unwrap()
             .unwrap();
 
-        id = response[selection].id.clone();
+        response[selection].id.clone()
     } else {
-        id = response[0].id.clone();
-    }
+        response[0].id.clone()
+    };
     Ok(id)
 }
 
 async fn sent_test_email(username: &String, address: &String) -> Result<()> {
     let mut profile = Profile::get_profile(VProfile::VB365);
 
-    let client = login(&username, &address, &mut profile).await?;
+    let client = login(username, address, &mut profile).await?;
 
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_LENGTH, "0".parse().unwrap());
 
     let url_string = build_url(
-        &address,
+        address,
         &"AuditEmailSettings/SendTest".to_string(),
         &profile,
     )?;
@@ -418,7 +426,7 @@ fn select_selection(selections: &[&str], prompt: String) -> usize {
     let selection = Select::with_theme(&ColorfulTheme::default())
         .with_prompt(&prompt)
         .default(0)
-        .items(&selections[..])
+        .items(selections)
         .interact_on_opt(&Term::stderr())
         .unwrap()
         .unwrap();
@@ -428,7 +436,7 @@ fn select_selection(selections: &[&str], prompt: String) -> usize {
 async fn get_users_groups(username: &String, address: &String) -> Result<()> {
     let mut profile = Profile::get_profile(VProfile::VB365);
 
-    let client = login(&username, &address, &mut profile).await?;
+    let client = login(username, address, &mut profile).await?;
     let org_id = get_org_id(address, &profile, &client).await?;
 
     let selections = &["Users", "Groups"];
@@ -446,7 +454,7 @@ async fn get_users_groups(username: &String, address: &String) -> Result<()> {
     match selection {
         0 => {
             let user_string = format!("Organizations/{}/Users", org_id);
-            let users_url = build_url(&address, &user_string, &profile)?;
+            let users_url = build_url(address, &user_string, &profile)?;
             let users: models::user::User = client.get(&users_url).send().await?.json().await?;
             let file = File::create("users.json")?;
             serde_json::to_writer_pretty(file, &users)?;
@@ -454,7 +462,7 @@ async fn get_users_groups(username: &String, address: &String) -> Result<()> {
         }
         1 => {
             let group_string = format!("Organizations/{}/Groups", org_id);
-            let groups_url = build_url(&address, &group_string, &profile)?;
+            let groups_url = build_url(address, &group_string, &profile)?;
             let groups: models::group::Group = client.get(&groups_url).send().await?.json().await?;
             let file = File::create("groups.json")?;
             serde_json::to_writer_pretty(file, &groups)?;
@@ -468,7 +476,7 @@ async fn get_users_groups(username: &String, address: &String) -> Result<()> {
 async fn add_audit_items(username: &String, address: &String) -> Result<()> {
     let mut profile = Profile::get_profile(VProfile::VB365);
 
-    let client = login(&username, &address, &mut profile).await?;
+    let client = login(username, address, &mut profile).await?;
     let org_id = get_org_id(address, &profile, &client).await?;
 
     let selections = &["Users", "Groups"];
@@ -522,7 +530,7 @@ async fn add_audit_items(username: &String, address: &String) -> Result<()> {
         }
     }
     let url_str = format!("Organizations/{org_id}/AuditItems");
-    let url = build_url(&address, &url_str, &profile)?;
+    let url = build_url(address, &url_str, &profile)?;
 
     let res = client.post(url).json(&audit_items).send().await?;
 
@@ -579,18 +587,10 @@ async fn main() -> Result<()> {
     match selection {
         0 => get_audit_items(&username, &address).await?,
         1 => add_audit_items(&username, &address).await?,
-        2 => {
-            remove_item(&username, &address).await?;
-        }
-        3 => {
-            get_users_groups(&username, &address).await?;
-        }
-        4 => {
-            setup_notifications(&username, &address, config).await?;
-        }
-        5 => {
-            sent_test_email(&username, &address).await?;
-        }
+        2 =>  remove_item(&username, &address).await?,
+        3 => get_users_groups(&username, &address).await?,
+        4 => setup_notifications(&username, &address, config).await?,
+        5 => sent_test_email(&username, &address).await?,
         _ => println!("Invalid selection"),
     }
 
