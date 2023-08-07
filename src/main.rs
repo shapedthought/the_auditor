@@ -8,9 +8,12 @@ use std::{
     fs::{self, File},
     io::Write,
 };
+
 use vauth::{build_auth_headers, build_url, Profile, VClientBuilder, VProfile};
 use webbrowser;
 mod models;
+mod tcplistener;
+use tcplistener::run_tcp_listener;
 use anyhow::Result;
 use chrono::{DateTime, Duration, Local, Utc};
 use models::{
@@ -191,15 +194,16 @@ async fn set_up_auth(
 
     println!("Opening browser to sign in...");
     webbrowser::open(&response.sign_in_url)?;
-    let mut url_file = fs::File::create(&"callback.txt".to_string())?;
-    url_file.write_all(b"replace this text")?;
 
-    println!("Please sign in and copy the URL you are redirected to into a file called callback.txt.");
-    println!("You will find in the same directory as you ran this program.");
-    press_btn_continue::wait("Press any key to continue...\n").unwrap();
-    let url_string = fs::read_to_string("callback.txt")?;
+    // let mut url_file = fs::File::create(&"callback.txt".to_string())?;
+    // url_file.write_all(b"replace this text")?;
+
+    println!("Please sign in, this program will listen for the data from the call back.");
+    // press_btn_continue::wait("Press any key to continue...\n").unwrap();
+    // let url_string = fs::read_to_string("callback.txt")?;
+    let url_string = run_tcp_listener(config.azure.redirect_url.clone()).await?;
     if url_string.is_empty() {
-        return Err(anyhow::anyhow!("URL file is empty"));
+        return Err(anyhow::anyhow!("The URL was empty"));
     }
     let pattern = r"=([^&]+)";
     let regex = Regex::new(pattern).unwrap();
@@ -207,7 +211,7 @@ async fn set_up_auth(
         .captures_iter(&url_string)
         .map(|capture| capture.get(1).unwrap().as_str())
         .collect();
-    if matches.len() != 3 {
+    if matches.len() != 2 {
         return Err(anyhow::anyhow!("Invalid URL"));
     }
     let complete_request = CompleteRequest {
@@ -219,14 +223,21 @@ async fn set_up_auth(
         &"AuditEmailSettings/CompleteOAuthSignIn".to_string(),
         profile,
     )?;
-    let complete_response: CompleteResponse = client
+    let complete_response = client
         .post(&url_string)
         .json(&complete_request)
         .send()
-        .await?
-        .json()
         .await?;
-    Ok(complete_response)
+
+    if complete_response.status().is_success() {
+        let complete_response = complete_response.json::<CompleteResponse>().await?;
+        Ok(complete_response)
+    } else {
+        let reason = complete_response.text().await?;
+        Err(anyhow::anyhow!("Authentication failed! {:?}", reason))
+    }
+
+    // Ok(complete_response)
 }
 
 async fn remove_item(username: &String, address: &String) -> Result<()> {
@@ -579,18 +590,10 @@ async fn main() -> Result<()> {
     match selection {
         0 => get_audit_items(&username, &address).await?,
         1 => add_audit_items(&username, &address).await?,
-        2 => {
-            remove_item(&username, &address).await?;
-        }
-        3 => {
-            get_users_groups(&username, &address).await?;
-        }
-        4 => {
-            setup_notifications(&username, &address, config).await?;
-        }
-        5 => {
-            sent_test_email(&username, &address).await?;
-        }
+        2 =>  remove_item(&username, &address).await?,
+        3 => get_users_groups(&username, &address).await?,
+        4 => setup_notifications(&username, &address, config).await?,
+        5 => sent_test_email(&username, &address).await?,
         _ => println!("Invalid selection"),
     }
 
