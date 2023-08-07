@@ -23,15 +23,15 @@ pub async fn run_tcp_listener(address: String) -> Result<String> {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                let mut buffer = [0; 1024];
-                stream.read(&mut buffer)?;
+                let mut buffer = [0; 2048];
+                stream.read_exact(&mut buffer)?;
                 let request = String::from_utf8_lossy(&buffer[..]);
 
                 if request.starts_with("GET") {
                     let re = Regex::new(r"GET /([^ ]+)").unwrap();
                     data = re.captures(&request).unwrap()[1].to_string();
-                    let http_response = format!("HTTP/1.1 200 OK\r\n\r\n You can close this window now.");
-                    stream.write(http_response.as_bytes()).expect("Failed to write to stream");
+                    let http_response = "HTTP/1.1 200 OK\r\n\r\n You can close this window now.".to_string();
+                    stream.write_all(http_response.as_bytes()).expect("Failed to write to stream");
 
                     break;
                 }
@@ -41,6 +41,5 @@ pub async fn run_tcp_listener(address: String) -> Result<String> {
             }
         }
     }
-    println!("{}", data);
     Ok(data)
 }
