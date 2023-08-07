@@ -5,15 +5,13 @@ use std::io::{Read, Write};
 
 
 pub async fn run_tcp_listener(address: String) -> Result<String> {
-    println!("address to test: {}", address);
     let re = Regex::new(r":(\d+)/").unwrap();
-    let mut port = String::new();
-    if let Some(caps) = re.captures(&address) {
-        port = caps[1].to_string();
+    let port = if let Some(caps) = re.captures(&address) {
+        format!(":{}", caps[1].to_string())
     } else {
-        Err(anyhow::anyhow!("Unable to parse port from address"))?;
-    }
-    let address = format!("127.0.0.1:{}", port);
+        ":80".to_string()
+    };
+    let address = format!("127.0.0.1{}", port);
     let listener = TcpListener::bind(address)?;
 
     println!("Listening on {}", listener.local_addr()?);
@@ -24,7 +22,7 @@ pub async fn run_tcp_listener(address: String) -> Result<String> {
         match stream {
             Ok(mut stream) => {
                 let mut buffer = [0; 2048];
-                stream.read_exact(&mut buffer)?;
+                stream.read(&mut buffer)?;
                 let request = String::from_utf8_lossy(&buffer[..]);
 
                 if request.starts_with("GET") {

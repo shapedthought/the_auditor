@@ -171,11 +171,12 @@ async fn set_up_auth(
     profile: &Profile,
     client: &Client,
 ) -> Result<CompleteResponse, anyhow::Error> {
+
     let auth_request = AuthRequest {
         authentication_service_kind: "Microsoft365".to_string(),
+        tenant_id: config.azure.tenant_id.clone(),
         client_id: config.azure.client_id.clone(),
         client_secret: config.azure.client_secret.clone(),
-        tenant_id: config.azure.tenant_id.clone(),
         redirect_url: config.azure.redirect_url.clone(),
     };
     let url = build_url(
@@ -573,7 +574,7 @@ async fn main() -> Result<()> {
         "Add Audit items",
         "Remove Audit items",
         "Get Users/Groups",
-        "Setup/Reauthorize Notifications",
+        "Setup Notifications",
         "Send Test Email",
     ];
     let selection = Select::with_theme(&ColorfulTheme::default())

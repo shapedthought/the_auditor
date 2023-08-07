@@ -56,10 +56,10 @@ You will also need a config.toml file in the directory that you run the Auditor 
 
 ```
 [azure]
-tenant_id = ""
-client_id = ""
-client_secret = ""
-redirect_url = "http://localhost:5000/callback"
+tenant_id = "" # optional
+client_id = "" # optional
+client_secret = "" # optional
+redirect_url = "http://localhost" # use if you do not assign the above
 
 [notification]
 username = ""
@@ -75,10 +75,10 @@ address = ""
 
 | Object       | Key           | Description                                                                                                                            |
 | ------------ | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| azure        | tenant_id     | The tenant id of your Azure AD                                                                                                         |
-| azure        | client_id     | The client id of your Azure AD app                                                                                                     |
-| azure        | client_secret | The client secret of your Azure AD app                                                                                                 |
-| azure        | redirect_url  | The redirect url of your Azure AD app                                                                                                  |
+| azure        | tenant_id     | The tenant id of your Azure AD - Optional                                                                                              |
+| azure        | client_id     | The client id of your Azure AD app - Optional                                                                                          |
+| azure        | client_secret | The client secret of your Azure AD app - Optional                                                                                      |
+| azure        | redirect_url  | The redirect url of your Azure AD app - Use http://localhost if you do not assign the above.                                           |
 | notification | username      | Specifies the user name of the account used for authentication to the SMTP server.                                                     |
 | notification | user_id       | Specifies an authenticated user account ID. Veeam Backup for Microsoft 365 will send audit email notifications on behalf of this user. |
 | notification | from          | Specifies email address of the notification sender.                                                                                    |
@@ -86,6 +86,8 @@ address = ""
 | notification | subject       | Specifies the subject for audit email notifications.                                                                                   |
 | vb365        | username      | The username of your Veeam M365 account                                                                                                |
 | vb365        | address       | The address of your Veeam M365 server                                                                                                  |
+
+NOTE: In most cases you will not need to set the tenant_id, client_id or client_secret as VB365 will use the assigned Azure AD app.
 
 See:
 
@@ -97,20 +99,20 @@ For more information on the notification settings.
 
 If it can it will present you with a list of options:
 
-| Option                          | Description                                                            |
-| ------------------------------- | ---------------------------------------------------------------------- |
-| Get Audit Items                 | Gets a list of all the audit items that have been set up in Veeam M365 |
-| Add Audit Item                  | Adds a new audit item to Veeam M365                                    |
-| Remove Audit Item               | Removes an audit item from Veeam M365                                  |
-| Get Users/Groups                | Gets a list of all the users and groups in your VB365 instance         |
-| Setup/Reauthorize Notifications | Sets up the Azure app and the notification settings in VB365           |
-| Send Test Email                 | Sends a test email to the notification recipient                       |
+| Option              | Description                                                            |
+| ------------------- | ---------------------------------------------------------------------- |
+| Get Audit Items     | Gets a list of all the audit items that have been set up in Veeam M365 |
+| Add Audit Item      | Adds a new audit item to Veeam M365                                    |
+| Remove Audit Item   | Removes an audit item from Veeam M365                                  |
+| Get Users/Groups    | Gets a list of all the users and groups in your VB365 instance         |
+| Setup Notifications | Sets up the Azure app and the notification settings in VB365           |
+| Send Test Email     | Sends a test email to the notification recipient                       |
 
 ## Usage
 
 ### Setup
 
-If it is your first use you will need to run the Setup/Reauthorize option which will set up the notification authentication and the notification settings.
+If it is your first use you will need to run the Setup option which will set up the notification authentication and the notification settings.
 
 Doing this will trigger a web browser to open and you will need to log in to your Azure AD account remember to enabled "Consent on behalf of your organization".
 
