@@ -79,7 +79,6 @@ address = ""
 | azure        | client_id     | The client id of your Azure AD app - Optional                                                                                          |
 | azure        | client_secret | The client secret of your Azure AD app - Optional                                                                                      |
 | azure        | redirect_url  | The redirect url of your Azure AD app - Use http://localhost if you do not assign the above.                                           |
-| notification | username      | Specifies the user name of the account used for authentication to the SMTP server.                                                     |
 | notification | user_id       | Specifies an authenticated user account ID. Veeam Backup for Microsoft 365 will send audit email notifications on behalf of this user. |
 | notification | from          | Specifies email address of the notification sender.                                                                                    |
 | notification | to            | Specifies email address of the notification recipient. For listing multiple recipients, use semicolon as a separator.                  |

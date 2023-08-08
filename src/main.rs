@@ -142,9 +142,6 @@ async fn setup_notifications(username: &String, address: &String, config: Config
     let nd = NotificationData {
         enable_notification: true,
         authentication_type: "Microsoft365".to_string(),
-        use_authentication: true,
-        username: config.notification.user_id.clone(),
-        use_ssl: true,
         to: config.notification.to,
         from: config.notification.from,
         subject: config.notification.subject,
