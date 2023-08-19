@@ -19,6 +19,7 @@ toml = "0.7.6"
 regex = "1.9.1"
 press-btn-continue = "0.2.0"
 chrono = "0.4.26"
+comfy-table = "7.0.1"
 
 [profile.release]
 strip = true

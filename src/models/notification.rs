@@ -6,10 +6,6 @@ use serde::Serialize;
 pub struct NotificationData {
     pub enable_notification: bool,
     pub authentication_type: String,
-    pub use_authentication: bool,
-    pub username: String,
-    #[serde(rename = "useSSL")]
-    pub use_ssl: bool,
     pub from: String,
     pub to: String,
     pub subject: String,

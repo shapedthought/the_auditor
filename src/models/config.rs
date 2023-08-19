@@ -10,10 +10,10 @@ pub struct Config {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Azure {
-    pub tenant_id: String,
-    pub client_id: String,
-    pub client_secret: String,
     pub redirect_url: String,
+    pub tenant_id: Option<String>,
+    pub client_id: Option<String>,
+    pub client_secret : Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
