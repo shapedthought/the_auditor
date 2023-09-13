@@ -7,19 +7,19 @@ use super::user::Result as UserResult;
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuditItem {
-    #[serde(rename = "_links")]
-    pub links: Option<Links>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     #[serde(rename = "type")]
     pub type_field: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<User2>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub group: Option<Group>,
 }
 
 impl From<UserResult> for AuditItem {
     fn from(user: UserResult) -> Self {
         AuditItem {
-            links: None,
             id: None,
             type_field: user.type_field,
             user: Some(User2 {
@@ -37,17 +37,15 @@ impl From<UserResult> for AuditItem {
 impl From<GroupResult> for AuditItem {
     fn from(group: GroupResult) -> Self {
         AuditItem {
-            links: None,
             id: None,
-            type_field: group.type_field,
+            type_field: "Group".to_string(),
             user: None,
             group: Some(Group {
-                links: Links2 {},
-                display_name: group.display_name,
+                display_name: group.display_name.clone(),
                 id: group.id,
-                location_type: group.location_type,
-                name: group.name,
-                on_premises_sid: None,
+                type_field: "Office365".to_string(),
+                location_type: "Cloud".to_string(),
+                name: group.display_name,
             }),
         }
     }
@@ -86,13 +84,12 @@ pub struct User2 {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Group {
-    #[serde(rename = "_links")]
-    pub links: Links2,
     pub display_name: String,
     pub id: String,
+    #[serde(rename = "type")]
+    pub type_field: String,
     pub location_type: String,
     pub name: String,
-    pub on_premises_sid: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
